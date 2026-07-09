@@ -36,6 +36,14 @@ func TestAnswerAndCancelFrames(t *testing.T) {
 	assertJSONEqual(t, map[string]any{"event": "cancel", "data": map[string]any{}}, CancelFrame())
 }
 
+func TestListAgentsFrame(t *testing.T) {
+	assertJSONEqual(t, map[string]any{
+		"event": "listAgents",
+		"data":  map[string]any{"requestId": "agents-1"},
+	}, ListAgentsFrame("agents-1"))
+	assertJSONEqual(t, map[string]any{"event": "listAgents", "data": map[string]any{}}, ListAgentsFrame(""))
+}
+
 func assertJSONEqual(t *testing.T, want, got any) {
 	t.Helper()
 	wantJSON, err := json.Marshal(want)

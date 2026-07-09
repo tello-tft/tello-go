@@ -116,6 +116,10 @@ func (c *Client) Cancel(ctx context.Context) error {
 	return c.send(ctx, CancelFrame())
 }
 
+func (c *Client) ListAgents(ctx context.Context, requestID string) error {
+	return c.send(ctx, ListAgentsFrame(requestID))
+}
+
 func (c *Client) send(_ context.Context, frame CommandFrame) error {
 	c.mu.Lock()
 	conn := c.conn

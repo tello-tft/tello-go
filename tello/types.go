@@ -5,6 +5,7 @@ const ProtocolVersion = "1.0"
 const (
 	EventTypeUserTurn          = "user.turn"
 	EventTypeAgentTurn         = "agent.turn"
+	EventTypeAgentsListed      = "agents.listed"
 	EventTypeCallStatusChanged = "call.status_changed"
 	EventTypeCallCompleted     = "call.completed"
 	EventTypeCallNoAnswer      = "call.no_answer"
@@ -28,4 +29,13 @@ type Event struct {
 	Message        string
 	RequestID      string
 	Question       string
+	Agents         []AgentInfo
+}
+
+type AgentInfo struct {
+	AgentID   string
+	Name      string
+	Role      string
+	IsDefault bool
+	Status    string
 }

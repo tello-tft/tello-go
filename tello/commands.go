@@ -34,6 +34,14 @@ func CancelFrame() CommandFrame {
 	return CommandFrame{"event": "cancel", "data": map[string]any{}}
 }
 
+func ListAgentsFrame(requestID string) CommandFrame {
+	data := map[string]any{}
+	if requestID != "" {
+		data["requestId"] = requestID
+	}
+	return CommandFrame{"event": "listAgents", "data": data}
+}
+
 func Encode(frame CommandFrame) ([]byte, error) {
 	return json.Marshal(frame)
 }
