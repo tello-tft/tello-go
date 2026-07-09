@@ -14,6 +14,21 @@ func ParseEvent(frame map[string]any) Event {
 	case EventTypeAgentsListed:
 		event.RequestID = stringValue(frame["requestId"])
 		event.Agents = agentInfos(frame["agents"])
+	case EventTypeCallSummary:
+		event.RequestID = stringValue(frame["requestId"])
+		event.CallID = stringValue(frame["callId"])
+		event.Status = stringValue(frame["status"])
+		event.DurationSeconds = intValue(frame["durationSeconds"])
+		event.Transcript = stringValue(frame["transcript"])
+		event.Summary = stringValue(frame["summary"])
+		event.CreditCharged = intValue(frame["creditCharged"])
+	case EventTypeSmsSent:
+		event.RequestID = stringValue(frame["requestId"])
+		event.SmsID = stringValue(frame["smsId"])
+		event.Status = stringValue(frame["status"])
+		event.To = stringValue(frame["to"])
+		event.MessagePreview = stringValue(frame["messagePreview"])
+		event.CallID = stringValue(frame["callId"])
 	case EventTypeUserTurn, EventTypeAgentTurn:
 		event.TurnIndex = intValue(frame["turn_index"])
 		event.Text = stringValue(frame["text"])

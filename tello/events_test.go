@@ -60,6 +60,37 @@ func TestParseAgentsListed(t *testing.T) {
 	}
 }
 
+func TestParseCallSummaryAndSmsSent(t *testing.T) {
+	summary := ParseEvent(map[string]any{
+		"type":            "call.summary",
+		"version":         "1.0",
+		"requestId":       "summary-1",
+		"callId":          "call-1",
+		"status":          "completed",
+		"durationSeconds": float64(42),
+		"transcript":      "고객: 예약 확인",
+		"summary":         "예약 확인 완료",
+		"creditCharged":   float64(15),
+	})
+	if summary.Type != EventTypeCallSummary || summary.RequestID != "summary-1" || summary.CallID != "call-1" || summary.DurationSeconds != 42 || summary.CreditCharged != 15 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+
+	sms := ParseEvent(map[string]any{
+		"type":           "sms.sent",
+		"version":        "1.0",
+		"requestId":      "sms-1",
+		"smsId":          "77",
+		"status":         "queued",
+		"to":             "01012345678",
+		"messagePreview": "예약 확인",
+		"callId":         "call-1",
+	})
+	if sms.Type != EventTypeSmsSent || sms.RequestID != "sms-1" || sms.SmsID != "77" || sms.CallID != "call-1" {
+		t.Fatalf("unexpected sms: %+v", sms)
+	}
+}
+
 func TestTerminalDetection(t *testing.T) {
 	if !IsTerminal(ParseEvent(map[string]any{
 		"type":      "call.completed",

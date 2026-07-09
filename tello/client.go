@@ -120,6 +120,14 @@ func (c *Client) ListAgents(ctx context.Context, requestID string) error {
 	return c.send(ctx, ListAgentsFrame(requestID))
 }
 
+func (c *Client) GetSummary(ctx context.Context, callID, requestID string) error {
+	return c.send(ctx, GetSummaryFrame(callID, requestID))
+}
+
+func (c *Client) SendSms(ctx context.Context, to, message, callID, requestID string) error {
+	return c.send(ctx, SendSmsFrame(to, message, callID, requestID))
+}
+
 func (c *Client) send(_ context.Context, frame CommandFrame) error {
 	c.mu.Lock()
 	conn := c.conn
