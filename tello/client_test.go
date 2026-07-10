@@ -51,7 +51,7 @@ func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
 		t.Fatalf("expected auth header, got %q", gotAuth)
 	}
 	assertJSONEqual(t, map[string]any{
-		"event": "create_call",
+		"event": "createCall",
 		"data": map[string]any{
 			"to":        "+821012345678",
 			"agentId":   "agent-1",
@@ -59,6 +59,44 @@ func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
 			"metadata":  map[string]any{"src": "test"},
 			"requestId": "r1",
 		},
+	}, gotFrame)
+}
+
+func TestClientSendsDtmfFrame(t *testing.T) {
+	var gotFrame map[string]any
+	done := make(chan struct{})
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer close(done)
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		if err := conn.ReadJSON(&gotFrame); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient("key-1", WithURL("ws"+server.URL[len("http"):]+"/sdk"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Connect(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if err := client.SendDtmf(context.Background(), "1234#", "m1", "r1"); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+
+	assertJSONEqual(t, map[string]any{
+		"event": "sendDtmf",
+		"data":  map[string]any{"digits": "1234#", "messageId": "m1", "requestId": "r1"},
 	}, gotFrame)
 }
 
@@ -77,12 +115,12 @@ func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
 			return
 		}
 		_ = conn.WriteJSON(map[string]any{
-			"type":       "user.turn",
-			"version":    "1.0",
-			"call_id":    "c1",
-			"turn_index": 1,
-			"text":       "hello",
-			"timestamp":  "t",
+			"type":      "user.turn",
+			"version":   "1.0",
+			"callId":    "c1",
+			"turnIndex": 1,
+			"text":      "hello",
+			"timestamp": "t",
 		})
 		_ = conn.WriteJSON(map[string]any{
 			"type":     "error",
@@ -187,7 +225,7 @@ func TestClientIgnoresStaleCloseFromPreviousConnection(t *testing.T) {
 		_ = conn.WriteJSON(map[string]any{
 			"type":      "call.completed",
 			"version":   "1.0",
-			"call_id":   "c1",
+			"callId":    "c1",
 			"status":    "completed",
 			"timestamp": "t",
 		})

@@ -22,6 +22,7 @@ func main() {
 	client.On(tello.EventTypeUserTurn, func(ctx context.Context, event tello.Event) error {
 		return client.Answer(ctx, "heard: "+event.Text, "", "")
 	})
+	// Send DTMF digits: client.SendDtmf(ctx, "1234#", "", "")
 
 	if err := client.Connect(ctx); err != nil {
 		log.Fatal(err)
