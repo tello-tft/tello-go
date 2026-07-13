@@ -13,9 +13,33 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
+// readAuthenticate reads the first application frame and fails the test unless
+// it is the mandatory authenticate command. It returns the parsed frame so the
+// caller can assert on its payload.
+func readAuthenticate(t *testing.T, conn *websocket.Conn) map[string]any {
+	t.Helper()
+	var frame map[string]any
+	if err := conn.ReadJSON(&frame); err != nil {
+		t.Errorf("reading authenticate frame: %v", err)
+		return nil
+	}
+	if frame["event"] != "authenticate" {
+		t.Errorf("expected first frame to be authenticate, got %v", frame["event"])
+	}
+	return frame
+}
+
+func sendAuthOK(t *testing.T, conn *websocket.Conn) {
+	t.Helper()
+	if err := conn.WriteJSON(map[string]any{"type": "auth.ok", "version": "1.0"}); err != nil {
+		t.Errorf("writing auth.ok: %v", err)
+	}
+}
+
+func TestClientAuthenticatesFirstWithoutHeaderThenSendsCreateCall(t *testing.T) {
 	var gotAuth string
-	var gotFrame map[string]any
+	var authFrame map[string]any
+	var createFrame map[string]any
 	done := make(chan struct{})
 	upgrader := websocket.Upgrader{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +51,9 @@ func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		if err := conn.ReadJSON(&gotFrame); err != nil {
+		authFrame = readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
+		if err := conn.ReadJSON(&createFrame); err != nil {
 			t.Error(err)
 		}
 	}))
@@ -47,9 +73,13 @@ func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
 	}
 	<-done
 
-	if gotAuth != "Bearer key-1" {
-		t.Fatalf("expected auth header, got %q", gotAuth)
+	if gotAuth != "" {
+		t.Fatalf("expected no Authorization header, got %q", gotAuth)
 	}
+	assertJSONEqual(t, map[string]any{
+		"event": "authenticate",
+		"data":  map[string]any{"apiKey": "key-1"},
+	}, authFrame)
 	assertJSONEqual(t, map[string]any{
 		"event": "createCall",
 		"data": map[string]any{
@@ -59,23 +89,124 @@ func TestClientSendsAuthorizationHeaderAndCreateCallFrame(t *testing.T) {
 			"metadata":  map[string]any{"src": "test"},
 			"requestId": "r1",
 		},
-	}, gotFrame)
+	}, createFrame)
 }
 
-func TestClientSendsDtmfFrame(t *testing.T) {
-	var gotFrame map[string]any
-	done := make(chan struct{})
+func TestClientConnectFailsOnUnauthenticatedErrorFrame(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer close(done)
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			t.Error(err)
 			return
 		}
 		defer conn.Close()
-		if err := conn.ReadJSON(&gotFrame); err != nil {
+		readAuthenticate(t, conn)
+		_ = conn.WriteJSON(map[string]any{
+			"type":    "error",
+			"version": "1.0",
+			"code":    "unauthenticated",
+			"message": "invalid key",
+		})
+		_ = conn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(closeUnauthenticated, "unauthenticated"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient("key-1", WithURL("ws"+server.URL[len("http"):]+"/sdk"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect(context.Background())
+	var authErr *AuthenticationError
+	if !errors.As(err, &authErr) {
+		t.Fatalf("expected AuthenticationError, got %T: %v", err, err)
+	}
+}
+
+func TestClientConnectFailsOn4401Close(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
 			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		readAuthenticate(t, conn)
+		_ = conn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(closeUnauthenticated, "unauthenticated"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient("key-1", WithURL("ws"+server.URL[len("http"):]+"/sdk"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect(context.Background())
+	var authErr *AuthenticationError
+	if !errors.As(err, &authErr) {
+		t.Fatalf("expected AuthenticationError, got %T: %v", err, err)
+	}
+}
+
+func TestClientConnectFailsWhenAuthOKTimesOut(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		readAuthenticate(t, conn)
+		// Never send auth.ok; keep the socket open until the test finishes.
+		<-release
+	}))
+	defer server.Close()
+	defer close(release)
+
+	client, err := NewClient("key-1",
+		WithURL("ws"+server.URL[len("http"):]+"/sdk"),
+		WithOpenTimeout(200*time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect(context.Background())
+	if err == nil {
+		t.Fatal("expected Connect to fail on auth.ok timeout")
+	}
+	var closed *ConnectionClosedError
+	if !errors.As(err, &closed) {
+		t.Fatalf("expected ConnectionClosedError, got %T: %v", err, err)
+	}
+}
+
+func TestClientDoesNotSendBusinessCommandBeforeAuthOK(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	sawAuth := make(chan struct{})
+	frames := make(chan map[string]any, 4)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		readAuthenticate(t, conn)
+		close(sawAuth)
+		// Delay auth.ok. Any business command sent during this window would
+		// arrive before auth.ok and be captured out of order below.
+		<-release
+		sendAuthOK(t, conn)
+		for {
+			var frame map[string]any
+			if err := conn.ReadJSON(&frame); err != nil {
+				return
+			}
+			frames <- frame
 		}
 	}))
 	defer server.Close()
@@ -84,20 +215,37 @@ func TestClientSendsDtmfFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Connect(context.Background()); err != nil {
-		t.Fatal(err)
+
+	connectDone := make(chan error, 1)
+	go func() { connectDone <- client.Connect(context.Background()) }()
+
+	<-sawAuth
+	// Connect must still be blocked: it has not seen auth.ok yet.
+	select {
+	case err := <-connectDone:
+		t.Fatalf("Connect returned before auth.ok: %v", err)
+	case frame := <-frames:
+		t.Fatalf("unexpected frame before auth.ok: %v", frame)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	if err := <-connectDone; err != nil {
+		t.Fatalf("Connect failed: %v", err)
 	}
 	defer client.Close()
 
-	if err := client.SendDtmf(context.Background(), "1234#", "m1", "r1"); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "", nil, ""); err != nil {
 		t.Fatal(err)
 	}
-	<-done
-
-	assertJSONEqual(t, map[string]any{
-		"event": "sendDtmf",
-		"data":  map[string]any{"digits": "1234#", "messageId": "m1", "requestId": "r1"},
-	}, gotFrame)
+	select {
+	case frame := <-frames:
+		if frame["event"] != "createCall" {
+			t.Fatalf("expected createCall after auth.ok, got %v", frame["event"])
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for createCall frame")
+	}
 }
 
 func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
@@ -109,6 +257,8 @@ func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
 			return
 		}
 		defer conn.Close()
+		readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
 		var ignored map[string]any
 		if err := conn.ReadJSON(&ignored); err != nil {
 			t.Error(err)
@@ -171,6 +321,11 @@ func TestClientReconnectReportsSecondConnectionClose(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
+		// Wait for the next frame (or client close), then drop the socket.
+		var ignored map[string]any
+		_ = conn.ReadJSON(&ignored)
 		_ = conn.Close()
 	}))
 	defer server.Close()
@@ -191,7 +346,7 @@ func TestClientReconnectReportsSecondConnectionClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	err = client.WaitClosed(ctx)
 	var closed *ConnectionClosedError
@@ -209,15 +364,12 @@ func TestClientIgnoresStaleCloseFromPreviousConnection(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
 		select {
 		case firstReady <- conn:
 			return
 		default:
-		}
-		var ignored map[string]any
-		if err := conn.ReadJSON(&ignored); err != nil {
-			t.Error(err)
-			return
 		}
 		first := <-firstReady
 		_ = first.Close()
@@ -259,6 +411,10 @@ func TestClientReturnsTypedErrorForCommandAfterClose(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
+		// Give the client a moment to observe auth.ok before closing.
+		time.Sleep(20 * time.Millisecond)
 		_ = conn.Close()
 	}))
 	defer server.Close()
@@ -290,6 +446,8 @@ func TestClientSerializesConcurrentCommandWrites(t *testing.T) {
 			return
 		}
 		defer conn.Close()
+		readAuthenticate(t, conn)
+		sendAuthOK(t, conn)
 		for {
 			var ignored map[string]any
 			if err := conn.ReadJSON(&ignored); err != nil {

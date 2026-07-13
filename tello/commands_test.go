@@ -5,6 +5,17 @@ import (
 	"testing"
 )
 
+func TestAuthenticateFrameUsesEnvelopeAndOmitsEmptyRequestID(t *testing.T) {
+	assertJSONEqual(t, map[string]any{
+		"event": "authenticate",
+		"data":  map[string]any{"apiKey": "tello_live_x", "requestId": "auth-1"},
+	}, AuthenticateFrame("tello_live_x", "auth-1"))
+	assertJSONEqual(t, map[string]any{
+		"event": "authenticate",
+		"data":  map[string]any{"apiKey": "tello_live_x"},
+	}, AuthenticateFrame("tello_live_x", ""))
+}
+
 func TestCreateCallFrameUsesEnvelopeAndCamelCase(t *testing.T) {
 	frame := CreateCallFrame("+821012345678", "agent-1", "hi", map[string]any{"src": "test"}, "r1")
 

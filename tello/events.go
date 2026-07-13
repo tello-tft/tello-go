@@ -11,6 +11,8 @@ func ParseEvent(frame map[string]any) Event {
 	}
 
 	switch eventType {
+	case EventTypeAuthOK:
+		event.RequestID = stringValue(frame["requestId"])
 	case EventTypeAgentsListed:
 		event.RequestID = stringValue(frame["requestId"])
 		event.Agents = agentInfos(frame["agents"])

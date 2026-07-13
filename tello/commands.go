@@ -4,6 +4,14 @@ import "encoding/json"
 
 type CommandFrame map[string]any
 
+func AuthenticateFrame(apiKey, requestID string) CommandFrame {
+	data := map[string]any{"apiKey": apiKey}
+	if requestID != "" {
+		data["requestId"] = requestID
+	}
+	return CommandFrame{"event": "authenticate", "data": data}
+}
+
 func CreateCallFrame(to, agentID, prompt string, metadata map[string]any, requestID string) CommandFrame {
 	data := map[string]any{
 		"to":      to,

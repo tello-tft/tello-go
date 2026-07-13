@@ -3,6 +3,7 @@ package tello
 const ProtocolVersion = "1.0"
 
 const (
+	EventTypeAuthOK            = "auth.ok"
 	EventTypeUserTurn          = "user.turn"
 	EventTypeAgentTurn         = "agent.turn"
 	EventTypeAgentsListed      = "agents.listed"
@@ -17,21 +18,21 @@ const (
 )
 
 type Event struct {
-	Type           string
-	Version        string
-	CallID         string
-	Timestamp      string
-	Raw            map[string]any
-	TurnIndex      int
-	Text           string
-	Status         string
-	PreviousStatus string
-	FailureReason  string
-	Code           string
-	Message        string
-	RequestID      string
-	Question       string
-	Agents         []AgentInfo
+	Type            string
+	Version         string
+	CallID          string
+	Timestamp       string
+	Raw             map[string]any
+	TurnIndex       int
+	Text            string
+	Status          string
+	PreviousStatus  string
+	FailureReason   string
+	Code            string
+	Message         string
+	RequestID       string
+	Question        string
+	Agents          []AgentInfo
 	DurationSeconds int
 	Transcript      string
 	Summary         string

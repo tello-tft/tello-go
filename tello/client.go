@@ -3,8 +3,8 @@ package tello
 import (
 	"context"
 	"errors"
-	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -16,17 +16,19 @@ const (
 
 type Client struct {
 	*EventEmitter
-	config   Config
-	conn     *websocket.Conn
-	mu       sync.Mutex
-	writeMu  sync.Mutex
-	callDone chan struct{}
-	closed   chan struct{}
-	closeErr error
-	callErr  error
-	active   bool
-	callGen  int
-	connGen  int
+	config        Config
+	conn          *websocket.Conn
+	mu            sync.Mutex
+	writeMu       sync.Mutex
+	callDone      chan struct{}
+	closed        chan struct{}
+	authDone      chan struct{}
+	closeErr      error
+	callErr       error
+	active        bool
+	authenticated bool
+	callGen       int
+	connGen       int
 }
 
 func NewClient(apiKey string, options ...Option) (*Client, error) {
@@ -44,8 +46,9 @@ func NewClient(apiKey string, options ...Option) (*Client, error) {
 
 func (c *Client) Connect(ctx context.Context) error {
 	dialer := websocket.Dialer{HandshakeTimeout: c.config.OpenTimeout}
-	headers := http.Header{"Authorization": []string{"Bearer " + c.config.APIKey}}
-	conn, _, err := dialer.DialContext(ctx, c.config.URL, headers)
+	// No Authorization header and no query-string token: the API key is
+	// authenticated from the first application frame instead (see authenticate).
+	conn, _, err := dialer.DialContext(ctx, c.config.URL, nil)
 	if err != nil {
 		return err
 	}
@@ -55,11 +58,63 @@ func (c *Client) Connect(ctx context.Context) error {
 	gen := c.connGen
 	c.callDone = make(chan struct{})
 	c.closed = make(chan struct{})
+	c.authDone = make(chan struct{})
 	c.closeErr = nil
 	c.callErr = nil
+	c.authenticated = false
+	closed := c.closed
+	authDone := c.authDone
 	c.mu.Unlock()
 	go c.recvLoop(gen, conn)
+
+	if err := c.authenticate(ctx, conn, closed, authDone); err != nil {
+		_ = conn.Close()
+		return err
+	}
 	return nil
+}
+
+// authenticate sends the mandatory first application frame and blocks until the
+// server confirms with auth.ok. It never returns until authentication resolves,
+// so no other command can be sent before the socket is authenticated. The API
+// key is only ever placed in the frame payload, never in logs or errors.
+func (c *Client) authenticate(ctx context.Context, conn *websocket.Conn, closed, authDone chan struct{}) error {
+	c.writeMu.Lock()
+	writeErr := conn.WriteJSON(AuthenticateFrame(c.config.APIKey, ""))
+	c.writeMu.Unlock()
+	if writeErr != nil {
+		return &ConnectionClosedError{TelloError{Message: "failed to send authentication frame"}}
+	}
+
+	timeout := c.config.OpenTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case <-authDone:
+	case <-closed:
+	case <-timer.C:
+	case <-ctx.Done():
+	}
+
+	c.mu.Lock()
+	authenticated := c.authenticated
+	authErr := c.closeErr
+	c.mu.Unlock()
+
+	if authenticated {
+		return nil
+	}
+	if authErr != nil {
+		return authErr
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return &ConnectionClosedError{TelloError{Message: "timed out waiting for authentication"}}
 }
 
 func (c *Client) Close() error {
@@ -172,11 +227,21 @@ func (c *Client) dispatch(gen int, frame map[string]any) {
 	c.mu.Unlock()
 
 	event := ParseEvent(frame)
+	if event.Type == EventTypeAuthOK {
+		c.mu.Lock()
+		if gen == c.connGen {
+			c.authenticated = true
+			closeIfOpen(c.authDone)
+		}
+		c.mu.Unlock()
+		return
+	}
 	if event.Type == EventTypeError {
 		err := ErrorFor(event.Code, event.Message, event.Question)
 		c.mu.Lock()
 		if event.Code == "unauthenticated" {
 			c.closeErr = err
+			closeIfOpen(c.authDone)
 		} else if c.active && event.Code != "no_active_call" && event.Code != "call_already_active" {
 			c.callErr = err
 			c.active = false
