@@ -80,7 +80,7 @@ func (c *Client) Connect(ctx context.Context) error {
 // key is only ever placed in the frame payload, never in logs or errors.
 func (c *Client) authenticate(ctx context.Context, conn *websocket.Conn, closed, authDone chan struct{}) error {
 	c.writeMu.Lock()
-	writeErr := conn.WriteJSON(AuthenticateFrame(c.config.APIKey, ""))
+	writeErr := conn.WriteJSON(AuthFrame(c.config.APIKey, ""))
 	c.writeMu.Unlock()
 	if writeErr != nil {
 		return &ConnectionClosedError{TelloError{Message: "failed to send authentication frame"}}
@@ -183,8 +183,8 @@ func (c *Client) GetSummary(ctx context.Context, callID, requestID string) error
 	return c.send(ctx, GetSummaryFrame(callID, requestID))
 }
 
-func (c *Client) SendSms(ctx context.Context, to, message, callID, requestID string) error {
-	return c.send(ctx, SendSmsFrame(to, message, callID, requestID))
+func (c *Client) SendSms(ctx context.Context, to, message, requestID string) error {
+	return c.send(ctx, SendSmsFrame(to, message, requestID))
 }
 
 func (c *Client) send(_ context.Context, frame CommandFrame) error {
@@ -242,7 +242,7 @@ func (c *Client) dispatch(gen int, frame map[string]any) {
 		if event.Code == "unauthenticated" {
 			c.closeErr = err
 			closeIfOpen(c.authDone)
-		} else if c.active && event.Code != "no_active_call" && event.Code != "call_already_active" {
+		} else if c.active && event.Code != "noActiveCall" && event.Code != "callAlreadyActive" {
 			c.callErr = err
 			c.active = false
 			closeIfOpen(c.callDone)

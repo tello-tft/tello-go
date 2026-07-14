@@ -21,13 +21,13 @@ func TestParseErrorFrame(t *testing.T) {
 	event := ParseEvent(map[string]any{
 		"type":      "error",
 		"version":   "1.0",
-		"code":      "call_rejected",
+		"code":      "callRejected",
 		"message":   "Call rejected",
 		"requestId": "r1",
 		"question":  "why?",
 	})
 
-	if event.Code != "call_rejected" || event.RequestID != "r1" || event.Question != "why?" {
+	if event.Code != "callRejected" || event.RequestID != "r1" || event.Question != "why?" {
 		t.Fatalf("unexpected error event: %+v", event)
 	}
 }
@@ -84,10 +84,48 @@ func TestParseCallSummaryAndSmsSent(t *testing.T) {
 		"status":         "queued",
 		"to":             "01012345678",
 		"messagePreview": "예약 확인",
-		"callId":         "call-1",
 	})
-	if sms.Type != EventTypeSmsSent || sms.RequestID != "sms-1" || sms.SmsID != "77" || sms.CallID != "call-1" {
+	if sms.Type != EventTypeSmsSent || sms.RequestID != "sms-1" || sms.SmsID != "77" || sms.To != "01012345678" {
 		t.Fatalf("unexpected sms: %+v", sms)
+	}
+}
+
+func TestParseAcceptedAndCreatedEvents(t *testing.T) {
+	created := ParseEvent(map[string]any{
+		"type":      "call.created",
+		"version":   "1.0",
+		"sessionId": "s1",
+		"callId":    "c1",
+		"timestamp": "t",
+	})
+	if created.Type != EventTypeCallCreated || created.SessionID != "s1" || created.CallID != "c1" {
+		t.Fatalf("unexpected call.created: %+v", created)
+	}
+
+	answer := ParseEvent(map[string]any{
+		"type":      "answer.accepted",
+		"version":   "1.0",
+		"requestId": "r1",
+		"sessionId": "s1",
+		"callId":    "c1",
+		"messageId": "m1",
+		"timestamp": "t",
+	})
+	if answer.Type != EventTypeAnswerAccepted || answer.MessageID != "m1" || answer.RequestID != "r1" {
+		t.Fatalf("unexpected answer.accepted: %+v", answer)
+	}
+
+	dtmf := ParseEvent(map[string]any{
+		"type":      "dtmf.accepted",
+		"version":   "1.0",
+		"sessionId": "s1",
+		"callId":    "c1",
+		"messageId": "m2",
+		"digits":    "12#",
+		"timestamp": "t",
+	})
+	if dtmf.Type != EventTypeDtmfAccepted || dtmf.MessageID != "m2" || dtmf.Digits != "12#" {
+		t.Fatalf("unexpected dtmf.accepted: %+v", dtmf)
 	}
 }
 
@@ -102,11 +140,11 @@ func TestTerminalDetection(t *testing.T) {
 		t.Fatal("completed should be terminal")
 	}
 	if !IsTerminal(ParseEvent(map[string]any{
-		"type":           "call.status_changed",
+		"type":           "call.statusChanged",
 		"version":        "1.0",
 		"callId":         "c1",
 		"status":         "cancelled",
-		"previousStatus": "in_progress",
+		"previousStatus": "inProgress",
 		"timestamp":      "t",
 	})) {
 		t.Fatal("cancelled should be terminal")

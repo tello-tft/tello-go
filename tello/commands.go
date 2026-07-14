@@ -4,12 +4,12 @@ import "encoding/json"
 
 type CommandFrame map[string]any
 
-func AuthenticateFrame(apiKey, requestID string) CommandFrame {
-	data := map[string]any{"apiKey": apiKey}
+func AuthFrame(apiKey, requestID string) CommandFrame {
+	data := map[string]any{"token": apiKey}
 	if requestID != "" {
 		data["requestId"] = requestID
 	}
-	return CommandFrame{"event": "authenticate", "data": data}
+	return CommandFrame{"event": "auth", "data": data}
 }
 
 func CreateCallFrame(to, agentID, prompt string, metadata map[string]any, requestID string) CommandFrame {
@@ -69,11 +69,8 @@ func GetSummaryFrame(callID, requestID string) CommandFrame {
 	return CommandFrame{"event": "getSummary", "data": data}
 }
 
-func SendSmsFrame(to, message, callID, requestID string) CommandFrame {
+func SendSmsFrame(to, message, requestID string) CommandFrame {
 	data := map[string]any{"to": to, "message": message}
-	if callID != "" {
-		data["callId"] = callID
-	}
 	if requestID != "" {
 		data["requestId"] = requestID
 	}

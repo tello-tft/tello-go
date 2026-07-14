@@ -5,6 +5,7 @@ func ParseEvent(frame map[string]any) Event {
 	event := Event{
 		Type:      eventType,
 		Version:   stringValue(frame["version"]),
+		SessionID: stringValue(frame["sessionId"]),
 		CallID:    stringValue(frame["callId"]),
 		Timestamp: stringValue(frame["timestamp"]),
 		Raw:       frame,
@@ -13,6 +14,15 @@ func ParseEvent(frame map[string]any) Event {
 	switch eventType {
 	case EventTypeAuthOK:
 		event.RequestID = stringValue(frame["requestId"])
+	case EventTypeCallCreated:
+		// callId and sessionId are captured above.
+	case EventTypeAnswerAccepted:
+		event.RequestID = stringValue(frame["requestId"])
+		event.MessageID = stringValue(frame["messageId"])
+	case EventTypeDtmfAccepted:
+		event.RequestID = stringValue(frame["requestId"])
+		event.MessageID = stringValue(frame["messageId"])
+		event.Digits = stringValue(frame["digits"])
 	case EventTypeAgentsListed:
 		event.RequestID = stringValue(frame["requestId"])
 		event.Agents = agentInfos(frame["agents"])
@@ -30,7 +40,6 @@ func ParseEvent(frame map[string]any) Event {
 		event.Status = stringValue(frame["status"])
 		event.To = stringValue(frame["to"])
 		event.MessagePreview = stringValue(frame["messagePreview"])
-		event.CallID = stringValue(frame["callId"])
 	case EventTypeUserTurn, EventTypeAgentTurn:
 		event.TurnIndex = intValue(frame["turnIndex"])
 		event.Text = stringValue(frame["text"])

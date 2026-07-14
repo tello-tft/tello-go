@@ -4,14 +4,17 @@ const ProtocolVersion = "1.0"
 
 const (
 	EventTypeAuthOK            = "auth.ok"
+	EventTypeCallCreated       = "call.created"
 	EventTypeUserTurn          = "user.turn"
 	EventTypeAgentTurn         = "agent.turn"
 	EventTypeAgentsListed      = "agents.listed"
 	EventTypeCallSummary       = "call.summary"
 	EventTypeSmsSent           = "sms.sent"
-	EventTypeCallStatusChanged = "call.status_changed"
+	EventTypeAnswerAccepted    = "answer.accepted"
+	EventTypeDtmfAccepted      = "dtmf.accepted"
+	EventTypeCallStatusChanged = "call.statusChanged"
 	EventTypeCallCompleted     = "call.completed"
-	EventTypeCallNoAnswer      = "call.no_answer"
+	EventTypeCallNoAnswer      = "call.noAnswer"
 	EventTypeCallFailed        = "call.failed"
 	EventTypeError             = "error"
 	EventTypeDisconnected      = "disconnected"
@@ -20,11 +23,14 @@ const (
 type Event struct {
 	Type            string
 	Version         string
+	SessionID       string
 	CallID          string
 	Timestamp       string
 	Raw             map[string]any
 	TurnIndex       int
 	Text            string
+	MessageID       string
+	Digits          string
 	Status          string
 	PreviousStatus  string
 	FailureReason   string

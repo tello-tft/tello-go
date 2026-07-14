@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-func TestAuthenticateFrameUsesEnvelopeAndOmitsEmptyRequestID(t *testing.T) {
+func TestAuthFrameUsesEnvelopeAndOmitsEmptyRequestID(t *testing.T) {
 	assertJSONEqual(t, map[string]any{
-		"event": "authenticate",
-		"data":  map[string]any{"apiKey": "tello_live_x", "requestId": "auth-1"},
-	}, AuthenticateFrame("tello_live_x", "auth-1"))
+		"event": "auth",
+		"data":  map[string]any{"token": "tello_live_x", "requestId": "auth-1"},
+	}, AuthFrame("tello_live_x", "auth-1"))
 	assertJSONEqual(t, map[string]any{
-		"event": "authenticate",
-		"data":  map[string]any{"apiKey": "tello_live_x"},
-	}, AuthenticateFrame("tello_live_x", ""))
+		"event": "auth",
+		"data":  map[string]any{"token": "tello_live_x"},
+	}, AuthFrame("tello_live_x", ""))
 }
 
 func TestCreateCallFrameUsesEnvelopeAndCamelCase(t *testing.T) {
@@ -76,10 +76,9 @@ func TestSummaryAndSmsFrames(t *testing.T) {
 		"data": map[string]any{
 			"to":        "01012345678",
 			"message":   "예약 확인",
-			"callId":    "call-1",
 			"requestId": "sms-1",
 		},
-	}, SendSmsFrame("01012345678", "예약 확인", "call-1", "sms-1"))
+	}, SendSmsFrame("01012345678", "예약 확인", "sms-1"))
 }
 
 func assertJSONEqual(t *testing.T, want, got any) {

@@ -13,25 +13,33 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// readAuthenticate reads the first application frame and fails the test unless
-// it is the mandatory authenticate command. It returns the parsed frame so the
-// caller can assert on its payload.
-func readAuthenticate(t *testing.T, conn *websocket.Conn) map[string]any {
+// readAuth reads the first application frame and fails the test unless it is
+// the mandatory auth command carrying the api key as the token field. It
+// returns the parsed frame so the caller can assert on its payload.
+func readAuth(t *testing.T, conn *websocket.Conn) map[string]any {
 	t.Helper()
 	var frame map[string]any
 	if err := conn.ReadJSON(&frame); err != nil {
-		t.Errorf("reading authenticate frame: %v", err)
+		t.Errorf("reading auth frame: %v", err)
 		return nil
 	}
-	if frame["event"] != "authenticate" {
-		t.Errorf("expected first frame to be authenticate, got %v", frame["event"])
+	if frame["event"] != "auth" {
+		t.Errorf("expected first frame to be auth, got %v", frame["event"])
+	}
+	data, _ := frame["data"].(map[string]any)
+	if data == nil || data["token"] == nil || data["token"] == "" {
+		t.Errorf("expected auth frame to carry a token, got %v", frame["data"])
 	}
 	return frame
 }
 
 func sendAuthOK(t *testing.T, conn *websocket.Conn) {
 	t.Helper()
-	if err := conn.WriteJSON(map[string]any{"type": "auth.ok", "version": "1.0"}); err != nil {
+	if err := conn.WriteJSON(map[string]any{
+		"type":      "auth.ok",
+		"version":   "1.0",
+		"accountId": "acc-1",
+	}); err != nil {
 		t.Errorf("writing auth.ok: %v", err)
 	}
 }
@@ -51,7 +59,7 @@ func TestClientAuthenticatesFirstWithoutHeaderThenSendsCreateCall(t *testing.T) 
 			return
 		}
 		defer conn.Close()
-		authFrame = readAuthenticate(t, conn)
+		authFrame = readAuth(t, conn)
 		sendAuthOK(t, conn)
 		if err := conn.ReadJSON(&createFrame); err != nil {
 			t.Error(err)
@@ -77,8 +85,8 @@ func TestClientAuthenticatesFirstWithoutHeaderThenSendsCreateCall(t *testing.T) 
 		t.Fatalf("expected no Authorization header, got %q", gotAuth)
 	}
 	assertJSONEqual(t, map[string]any{
-		"event": "authenticate",
-		"data":  map[string]any{"apiKey": "key-1"},
+		"event": "auth",
+		"data":  map[string]any{"token": "key-1"},
 	}, authFrame)
 	assertJSONEqual(t, map[string]any{
 		"event": "createCall",
@@ -101,7 +109,7 @@ func TestClientConnectFailsOnUnauthenticatedErrorFrame(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		_ = conn.WriteJSON(map[string]any{
 			"type":    "error",
 			"version": "1.0",
@@ -133,7 +141,7 @@ func TestClientConnectFailsOn4401Close(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		_ = conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(closeUnauthenticated, "unauthenticated"))
 	}))
@@ -160,7 +168,7 @@ func TestClientConnectFailsWhenAuthOKTimesOut(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		// Never send auth.ok; keep the socket open until the test finishes.
 		<-release
 	}))
@@ -195,7 +203,7 @@ func TestClientDoesNotSendBusinessCommandBeforeAuthOK(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		close(sawAuth)
 		// Delay auth.ok. Any business command sent during this window would
 		// arrive before auth.ok and be captured out of order below.
@@ -257,7 +265,7 @@ func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		sendAuthOK(t, conn)
 		var ignored map[string]any
 		if err := conn.ReadJSON(&ignored); err != nil {
@@ -275,7 +283,7 @@ func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
 		_ = conn.WriteJSON(map[string]any{
 			"type":     "error",
 			"version":  "1.0",
-			"code":     "call_rejected",
+			"code":     "callRejected",
 			"message":  "Call rejected",
 			"question": "why?",
 		})
@@ -321,7 +329,7 @@ func TestClientReconnectReportsSecondConnectionClose(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		sendAuthOK(t, conn)
 		// Wait for the next frame (or client close), then drop the socket.
 		var ignored map[string]any
@@ -364,7 +372,7 @@ func TestClientIgnoresStaleCloseFromPreviousConnection(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		sendAuthOK(t, conn)
 		select {
 		case firstReady <- conn:
@@ -411,7 +419,7 @@ func TestClientReturnsTypedErrorForCommandAfterClose(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		sendAuthOK(t, conn)
 		// Give the client a moment to observe auth.ok before closing.
 		time.Sleep(20 * time.Millisecond)
@@ -446,7 +454,7 @@ func TestClientSerializesConcurrentCommandWrites(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		readAuthenticate(t, conn)
+		readAuth(t, conn)
 		sendAuthOK(t, conn)
 		for {
 			var ignored map[string]any

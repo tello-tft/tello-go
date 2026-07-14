@@ -6,21 +6,33 @@ import (
 )
 
 func TestErrorForMapsCodes(t *testing.T) {
-	err := ErrorFor("no_active_call", "No active call", "")
+	err := ErrorFor("noActiveCall", "No active call", "")
 	var noActive *NoActiveCallError
 	if !errors.As(err, &noActive) {
 		t.Fatalf("expected NoActiveCallError, got %T", err)
 	}
 
-	err = ErrorFor("to_required", "to is required", "")
+	err = ErrorFor("toRequired", "to is required", "")
 	var validation *ValidationError
 	if !errors.As(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T", err)
 	}
+
+	err = ErrorFor("callAlreadyActive", "A call is already active", "")
+	var active *CallAlreadyActiveError
+	if !errors.As(err, &active) {
+		t.Fatalf("expected CallAlreadyActiveError, got %T", err)
+	}
+
+	err = ErrorFor("smsFailed", "SMS send failed", "")
+	var server *TelloServerError
+	if !errors.As(err, &server) {
+		t.Fatalf("expected TelloServerError, got %T", err)
+	}
 }
 
 func TestCallRejectedPreservesQuestion(t *testing.T) {
-	err := ErrorFor("call_rejected", "Call rejected", "why?")
+	err := ErrorFor("callRejected", "Call rejected", "why?")
 	var rejected *CallRejectedError
 	if !errors.As(err, &rejected) {
 		t.Fatalf("expected CallRejectedError, got %T", err)
