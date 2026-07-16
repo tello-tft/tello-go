@@ -32,34 +32,6 @@ func TestParseErrorFrame(t *testing.T) {
 	}
 }
 
-func TestParseAgentsListed(t *testing.T) {
-	event := ParseEvent(map[string]any{
-		"type":      "agents.listed",
-		"version":   "1.0",
-		"requestId": "agents-1",
-		"agents": []any{
-			map[string]any{
-				"agentId":   "agent-1",
-				"name":      "예약 확인",
-				"role":      "AI 상담원",
-				"isDefault": true,
-				"status":    "published",
-			},
-		},
-	})
-
-	if event.Type != EventTypeAgentsListed || event.RequestID != "agents-1" {
-		t.Fatalf("unexpected agents event: %+v", event)
-	}
-	if len(event.Agents) != 1 {
-		t.Fatalf("unexpected agents: %+v", event.Agents)
-	}
-	agent := event.Agents[0]
-	if agent.AgentID != "agent-1" || agent.Name != "예약 확인" || agent.Role != "AI 상담원" || !agent.IsDefault || agent.Status != "published" {
-		t.Fatalf("unexpected agent: %+v", agent)
-	}
-}
-
 func TestParseCallSummaryAndSmsSent(t *testing.T) {
 	summary := ParseEvent(map[string]any{
 		"type":            "call.summary",

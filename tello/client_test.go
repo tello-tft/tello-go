@@ -76,7 +76,7 @@ func TestClientAuthenticatesFirstWithoutHeaderThenSendsCreateCall(t *testing.T) 
 	}
 	defer client.Close()
 
-	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "prompt", map[string]any{"src": "test"}, "r1"); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "prompt", map[string]any{"src": "test"}, "r1"); err != nil {
 		t.Fatal(err)
 	}
 	<-done
@@ -92,12 +92,16 @@ func TestClientAuthenticatesFirstWithoutHeaderThenSendsCreateCall(t *testing.T) 
 		"event": "createCall",
 		"data": map[string]any{
 			"to":        "+821012345678",
-			"agentId":   "agent-1",
 			"prompt":    "prompt",
 			"metadata":  map[string]any{"src": "test"},
 			"requestId": "r1",
 		},
 	}, createFrame)
+	if data, _ := createFrame["data"].(map[string]any); data != nil {
+		if _, exists := data["agentId"]; exists {
+			t.Fatalf("createCall wire data must not contain agentId key, got %v", data)
+		}
+	}
 }
 
 func TestClientConnectFailsOnUnauthenticatedErrorFrame(t *testing.T) {
@@ -243,7 +247,7 @@ func TestClientDoesNotSendBusinessCommandBeforeAuthOK(t *testing.T) {
 	}
 	defer client.Close()
 
-	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "", nil, ""); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -303,7 +307,7 @@ func TestClientEmitsUserTurnsAndSurfacesCallRejection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "", nil, ""); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -350,7 +354,7 @@ func TestClientReconnectReportsSecondConnectionClose(t *testing.T) {
 	if err := client.Connect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "", nil, ""); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -402,7 +406,7 @@ func TestClientIgnoresStaleCloseFromPreviousConnection(t *testing.T) {
 	if err := client.Connect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.CreateCall(context.Background(), "+821012345678", "agent-1", "", nil, ""); err != nil {
+	if err := client.CreateCall(context.Background(), "+821012345678", "", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 

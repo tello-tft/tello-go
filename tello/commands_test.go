@@ -17,13 +17,12 @@ func TestAuthFrameUsesEnvelopeAndOmitsEmptyRequestID(t *testing.T) {
 }
 
 func TestCreateCallFrameUsesEnvelopeAndCamelCase(t *testing.T) {
-	frame := CreateCallFrame("+821012345678", "agent-1", "hi", map[string]any{"src": "test"}, "r1")
+	frame := CreateCallFrame("+821012345678", "hi", map[string]any{"src": "test"}, "r1")
 
 	want := map[string]any{
 		"event": "createCall",
 		"data": map[string]any{
 			"to":        "+821012345678",
-			"agentId":   "agent-1",
 			"prompt":    "hi",
 			"metadata":  map[string]any{"src": "test"},
 			"requestId": "r1",
@@ -35,8 +34,24 @@ func TestCreateCallFrameUsesEnvelopeAndCamelCase(t *testing.T) {
 func TestCreateCallFrameOmitsOptionalFields(t *testing.T) {
 	assertJSONEqual(t, map[string]any{
 		"event": "createCall",
-		"data":  map[string]any{"to": "+821012345678", "agentId": "agent-1", "prompt": ""},
-	}, CreateCallFrame("+821012345678", "agent-1", "", nil, ""))
+		"data":  map[string]any{"to": "+821012345678", "prompt": ""},
+	}, CreateCallFrame("+821012345678", "", nil, ""))
+}
+
+func TestCreateCallFrameNeverIncludesAgentID(t *testing.T) {
+	frames := []CommandFrame{
+		CreateCallFrame("+821012345678", "hi", nil, ""),
+		CreateCallFrame("+821012345678", "hi", map[string]any{"src": "test"}, "r1"),
+	}
+	for _, frame := range frames {
+		data, ok := frame["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected data payload, got %v", frame["data"])
+		}
+		if _, exists := data["agentId"]; exists {
+			t.Fatalf("createCall data must not contain agentId key, got %v", data)
+		}
+	}
 }
 
 func TestAnswerAndCancelFrames(t *testing.T) {
@@ -56,14 +71,6 @@ func TestSendDtmfFrame(t *testing.T) {
 		"event": "sendDtmf",
 		"data":  map[string]any{"digits": "1234#"},
 	}, SendDtmfFrame("1234#", "", ""))
-}
-
-func TestListAgentsFrame(t *testing.T) {
-	assertJSONEqual(t, map[string]any{
-		"event": "listAgents",
-		"data":  map[string]any{"requestId": "agents-1"},
-	}, ListAgentsFrame("agents-1"))
-	assertJSONEqual(t, map[string]any{"event": "listAgents", "data": map[string]any{}}, ListAgentsFrame(""))
 }
 
 func TestSummaryAndSmsFrames(t *testing.T) {

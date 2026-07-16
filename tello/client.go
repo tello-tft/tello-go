@@ -153,14 +153,14 @@ func (c *Client) WaitClosed(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) CreateCall(ctx context.Context, to, agentID, prompt string, metadata map[string]any, requestID string) error {
+func (c *Client) CreateCall(ctx context.Context, to, prompt string, metadata map[string]any, requestID string) error {
 	c.mu.Lock()
 	c.callGen++
 	c.callDone = make(chan struct{})
 	c.callErr = nil
 	c.active = true
 	c.mu.Unlock()
-	return c.send(ctx, CreateCallFrame(to, agentID, prompt, metadata, requestID))
+	return c.send(ctx, CreateCallFrame(to, prompt, metadata, requestID))
 }
 
 func (c *Client) Answer(ctx context.Context, text, messageID, requestID string) error {
@@ -173,10 +173,6 @@ func (c *Client) SendDtmf(ctx context.Context, digits, messageID, requestID stri
 
 func (c *Client) Cancel(ctx context.Context) error {
 	return c.send(ctx, CancelFrame())
-}
-
-func (c *Client) ListAgents(ctx context.Context, requestID string) error {
-	return c.send(ctx, ListAgentsFrame(requestID))
 }
 
 func (c *Client) GetSummary(ctx context.Context, callID, requestID string) error {

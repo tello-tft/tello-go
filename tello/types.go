@@ -7,7 +7,6 @@ const (
 	EventTypeCallCreated       = "call.created"
 	EventTypeUserTurn          = "user.turn"
 	EventTypeAgentTurn         = "agent.turn"
-	EventTypeAgentsListed      = "agents.listed"
 	EventTypeCallSummary       = "call.summary"
 	EventTypeSmsSent           = "sms.sent"
 	EventTypeAnswerAccepted    = "answer.accepted"
@@ -38,7 +37,6 @@ type Event struct {
 	Message         string
 	RequestID       string
 	Question        string
-	Agents          []AgentInfo
 	DurationSeconds int
 	Transcript      string
 	Summary         string
@@ -46,12 +44,4 @@ type Event struct {
 	SmsID           string
 	To              string
 	MessagePreview  string
-}
-
-type AgentInfo struct {
-	AgentID   string
-	Name      string
-	Role      string
-	IsDefault bool
-	Status    string
 }

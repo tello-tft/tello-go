@@ -25,7 +25,6 @@ func ErrorFor(code, message, question string) error {
 	case "unauthenticated":
 		return &AuthenticationError{base}
 	case "toRequired",
-		"agentIdRequired",
 		"callIdRequired",
 		"smsToRequired",
 		"smsMessageRequired",

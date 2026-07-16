@@ -23,9 +23,6 @@ func ParseEvent(frame map[string]any) Event {
 		event.RequestID = stringValue(frame["requestId"])
 		event.MessageID = stringValue(frame["messageId"])
 		event.Digits = stringValue(frame["digits"])
-	case EventTypeAgentsListed:
-		event.RequestID = stringValue(frame["requestId"])
-		event.Agents = agentInfos(frame["agents"])
 	case EventTypeCallSummary:
 		event.RequestID = stringValue(frame["requestId"])
 		event.CallID = stringValue(frame["callId"])
@@ -70,38 +67,11 @@ func IsTerminal(event Event) bool {
 	}
 }
 
-func agentInfos(value any) []AgentInfo {
-	rows, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	agents := make([]AgentInfo, 0, len(rows))
-	for _, row := range rows {
-		agent, ok := row.(map[string]any)
-		if !ok {
-			continue
-		}
-		agents = append(agents, AgentInfo{
-			AgentID:   stringValue(agent["agentId"]),
-			Name:      stringValue(agent["name"]),
-			Role:      stringValue(agent["role"]),
-			IsDefault: boolValue(agent["isDefault"]),
-			Status:    stringValue(agent["status"]),
-		})
-	}
-	return agents
-}
-
 func stringValue(value any) string {
 	if text, ok := value.(string); ok {
 		return text
 	}
 	return ""
-}
-
-func boolValue(value any) bool {
-	boolean, ok := value.(bool)
-	return ok && boolean
 }
 
 func intValue(value any) int {

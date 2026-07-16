@@ -12,11 +12,10 @@ func AuthFrame(apiKey, requestID string) CommandFrame {
 	return CommandFrame{"event": "auth", "data": data}
 }
 
-func CreateCallFrame(to, agentID, prompt string, metadata map[string]any, requestID string) CommandFrame {
+func CreateCallFrame(to, prompt string, metadata map[string]any, requestID string) CommandFrame {
 	data := map[string]any{
-		"to":      to,
-		"agentId": agentID,
-		"prompt":  prompt,
+		"to":     to,
+		"prompt": prompt,
 	}
 	if metadata != nil {
 		data["metadata"] = metadata
@@ -51,14 +50,6 @@ func SendDtmfFrame(digits, messageID, requestID string) CommandFrame {
 
 func CancelFrame() CommandFrame {
 	return CommandFrame{"event": "cancel", "data": map[string]any{}}
-}
-
-func ListAgentsFrame(requestID string) CommandFrame {
-	data := map[string]any{}
-	if requestID != "" {
-		data["requestId"] = requestID
-	}
-	return CommandFrame{"event": "listAgents", "data": data}
 }
 
 func GetSummaryFrame(callID, requestID string) CommandFrame {
