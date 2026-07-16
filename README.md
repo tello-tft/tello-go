@@ -1,6 +1,10 @@
-# tello-sdk-go
+# tello-go
 
 Go WebSocket SDK for the Tello `/sdk` protocol.
+
+```bash
+go get github.com/tello-tft/tello-go
+```
 
 ```go
 package main
@@ -9,7 +13,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/tello-ai/tello-sdk-go/tello"
+	"github.com/tello-tft/tello-go/tello"
 )
 
 func main() {
@@ -29,7 +33,7 @@ func main() {
 	}
 	defer client.Close()
 
-	if err := client.CreateCall(ctx, "+821012345678", "agent-1", "reservation check", nil, ""); err != nil {
+	if err := client.CreateCall(ctx, "+821012345678", "reservation check", nil, ""); err != nil {
 		log.Fatal(err)
 	}
 	if err := client.WaitClosed(ctx); err != nil {
@@ -41,5 +45,3 @@ func main() {
 `NewClient("")` reads `TELLO_API_KEY`; `WithURL` overrides the default `ws://localhost:3000/sdk`.
 
 `Connect` authenticates the API key internally: after the socket opens it sends an `auth` frame (`{"event":"auth","data":{"token":"<apiKey>"}}`) and returns only once the server confirms with `auth.ok`. No `Authorization` header or query-string token is used, and the key never appears in logs or error messages. `Connect` returns an error if authentication fails, the server closes with code `4401`, or `auth.ok` does not arrive within `WithOpenTimeout`. No commands run before authentication completes.
-
-The module path assumes this package is mirrored to `github.com/tello-ai/tello-sdk-go` for release. If it remains inside a monorepo, set the module path to the fetchable repository path before publishing.

@@ -1,4 +1,4 @@
-module github.com/tello-ai/tello-sdk-go
+module github.com/tello-tft/tello-go
 
 go 1.22
 
