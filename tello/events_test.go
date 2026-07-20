@@ -32,7 +32,7 @@ func TestParseErrorFrame(t *testing.T) {
 	}
 }
 
-func TestParseCallSummaryAndSmsSent(t *testing.T) {
+func TestParseCallSummary(t *testing.T) {
 	summary := ParseEvent(map[string]any{
 		"type":            "call.summary",
 		"version":         "1.0",
@@ -46,19 +46,6 @@ func TestParseCallSummaryAndSmsSent(t *testing.T) {
 	})
 	if summary.Type != EventTypeCallSummary || summary.RequestID != "summary-1" || summary.CallID != "call-1" || summary.DurationSeconds != 42 || summary.CreditCharged != 15 {
 		t.Fatalf("unexpected summary: %+v", summary)
-	}
-
-	sms := ParseEvent(map[string]any{
-		"type":           "sms.sent",
-		"version":        "1.0",
-		"requestId":      "sms-1",
-		"smsId":          "77",
-		"status":         "queued",
-		"to":             "01012345678",
-		"messagePreview": "예약 확인",
-	})
-	if sms.Type != EventTypeSmsSent || sms.RequestID != "sms-1" || sms.SmsID != "77" || sms.To != "01012345678" {
-		t.Fatalf("unexpected sms: %+v", sms)
 	}
 }
 

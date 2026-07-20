@@ -26,8 +26,6 @@ func ErrorFor(code, message, question string) error {
 		return &AuthenticationError{base}
 	case "toRequired",
 		"callIdRequired",
-		"smsToRequired",
-		"smsMessageRequired",
 		"dtmfDigitsRequired",
 		"dtmfDigitsInvalid":
 		return &ValidationError{base}
@@ -39,7 +37,6 @@ func ErrorFor(code, message, question string) error {
 		return &CallRejectedError{base}
 	case "callNotFound",
 		"callNotCompleted",
-		"smsFailed",
 		"internalError":
 		fallthrough
 	default:

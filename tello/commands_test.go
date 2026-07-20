@@ -73,19 +73,15 @@ func TestSendDtmfFrame(t *testing.T) {
 	}, SendDtmfFrame("1234#", "", ""))
 }
 
-func TestSummaryAndSmsFrames(t *testing.T) {
+func TestSummaryFrame(t *testing.T) {
 	assertJSONEqual(t, map[string]any{
 		"event": "getSummary",
 		"data":  map[string]any{"callId": "call-1", "requestId": "summary-1"},
 	}, GetSummaryFrame("call-1", "summary-1"))
 	assertJSONEqual(t, map[string]any{
-		"event": "sendSms",
-		"data": map[string]any{
-			"to":        "01012345678",
-			"message":   "예약 확인",
-			"requestId": "sms-1",
-		},
-	}, SendSmsFrame("01012345678", "예약 확인", "sms-1"))
+		"event": "getSummary",
+		"data":  map[string]any{"callId": "call-1"},
+	}, GetSummaryFrame("call-1", ""))
 }
 
 func assertJSONEqual(t *testing.T, want, got any) {

@@ -8,7 +8,6 @@ const (
 	EventTypeUserTurn          = "user.turn"
 	EventTypeAgentTurn         = "agent.turn"
 	EventTypeCallSummary       = "call.summary"
-	EventTypeSmsSent           = "sms.sent"
 	EventTypeAnswerAccepted    = "answer.accepted"
 	EventTypeDtmfAccepted      = "dtmf.accepted"
 	EventTypeCallStatusChanged = "call.statusChanged"
@@ -41,7 +40,4 @@ type Event struct {
 	Transcript      string
 	Summary         string
 	CreditCharged   int
-	SmsID           string
-	To              string
-	MessagePreview  string
 }

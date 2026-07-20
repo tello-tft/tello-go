@@ -60,14 +60,6 @@ func GetSummaryFrame(callID, requestID string) CommandFrame {
 	return CommandFrame{"event": "getSummary", "data": data}
 }
 
-func SendSmsFrame(to, message, requestID string) CommandFrame {
-	data := map[string]any{"to": to, "message": message}
-	if requestID != "" {
-		data["requestId"] = requestID
-	}
-	return CommandFrame{"event": "sendSms", "data": data}
-}
-
 func Encode(frame CommandFrame) ([]byte, error) {
 	return json.Marshal(frame)
 }

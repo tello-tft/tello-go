@@ -24,7 +24,7 @@ func TestErrorForMapsCodes(t *testing.T) {
 		t.Fatalf("expected CallAlreadyActiveError, got %T", err)
 	}
 
-	err = ErrorFor("smsFailed", "SMS send failed", "")
+	err = ErrorFor("internalError", "Internal error", "")
 	var server *TelloServerError
 	if !errors.As(err, &server) {
 		t.Fatalf("expected TelloServerError, got %T", err)

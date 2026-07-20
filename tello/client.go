@@ -179,10 +179,6 @@ func (c *Client) GetSummary(ctx context.Context, callID, requestID string) error
 	return c.send(ctx, GetSummaryFrame(callID, requestID))
 }
 
-func (c *Client) SendSms(ctx context.Context, to, message, requestID string) error {
-	return c.send(ctx, SendSmsFrame(to, message, requestID))
-}
-
 func (c *Client) send(_ context.Context, frame CommandFrame) error {
 	c.mu.Lock()
 	conn := c.conn
